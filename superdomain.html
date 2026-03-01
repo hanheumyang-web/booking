@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASSI - 마스터 대시보드</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #050505; font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", Roboto, sans-serif; color: #E5E5EA; }
+        .app-container { max-width: 1400px; margin: 0 auto; padding: 40px 24px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; border-bottom: 1px solid #1D1D1F; padding-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 28px; font-weight: 800; color: #FFF; letter-spacing: -0.5px; }
+        .header span { color: #007AFF; }
+        .header p { margin: 4px 0 0 0; color: #888; font-size: 14px; }
+        
+        /* KPI 그리드 */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .kpi-card { background: #111111; border: 1px solid #1D1D1F; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;}
+        .kpi-label { font-size: 13px; color: #A1A1A6; font-weight: 600; margin-bottom: 12px; }
+        .kpi-value { font-size: 32px; font-weight: 800; margin: 0; color: #FFF; }
+        .kpi-value.blue { color: #007AFF; }
+        .kpi-value.green { color: #34C759; }
+        .kpi-value.red { color: #FF3B30; }
+        .kpi-sub { font-size: 12px; color: #86868B; margin-top: 8px; font-weight: 500;}
+        
+        .section-title { font-size: 20px; font-weight: 700; margin: 0 0 20px 0; display:flex; align-items:center; gap:8px; color: #FFF; }
+        
+        /* 유저 관리 테이블 */
+        table { width: 100%; border-collapse: collapse; background: #111111; border-radius: 16px; overflow: hidden; border: 1px solid #1D1D1F; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #1D1D1F; font-size: 14px; }
+        th { background: #1A1A1A; color: #86868B; font-weight: 600; font-size: 12px; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #1D1D1F; }
+        
+        /* 💡 계정 정지된 유저 스타일 */
+        tr.banned td { opacity: 0.5; background: #0A0A0A; }
+        tr.banned td:nth-child(2) { text-decoration: line-through; color: #FF3B30; }
+
+        .badge { background: #EBF4FF; color: #007AFF; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display: inline-block;}
+        .badge.banned { background: #FFF4F4; color: #FF3B30; }
+        
+        .action-btn { background: #333; color: #FFF; border: none; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .action-btn.ban { background: #FF9500; color: #FFF; }
+        .action-btn.delete { background: transparent; border: 1px solid #FF3B30; color: #FF3B30; }
+        .action-btn:hover { opacity: 0.8; }
+        
+        /* 로그인 화면 */
+        #authScreen { position: fixed; top:0; left:0; right:0; bottom:0; background:#000; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .auth-box { background: #111; padding: 40px; border-radius: 20px; border: 1px solid #333; text-align: center; width: 320px; }
+        .auth-input { width: 100%; padding: 14px; border-radius: 8px; border: 1px solid #333; background: #000; color: #FFF; margin-bottom: 16px; box-sizing: border-box; font-size: 16px; outline:none; }
+        .auth-input:focus { border-color: #007AFF; }
+        .auth-btn { background: #007AFF; color: #FFF; border: none; padding: 14px; border-radius: 8px; width: 100%; font-size: 16px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="authScreen">
+    <div class="auth-box">
+        <h2 style="margin:0 0 8px 0; color:#FFF;">ASSI <span>Master</span></h2>
+        <p style="color:#888; margin-bottom:24px; font-size:14px;">관리자 엑세스 코드 입력</p>
+        <input type="password" id="devPasscode" class="auth-input" placeholder="Passcode">
+        <button class="auth-btn" onclick="checkDevAuth()">시스템 접속</button>
+    </div>
+</div>
+
+<div class="app-container" id="mainApp" style="display:none;">
+    <div class="header">
+        <div>
+            <h1>ASSI <span>Master Dashboard</span></h1>
+            <p id="lastUpdatedText">마지막 동기화: 로딩중...</p>
+        </div>
+        <button class="action-btn" style="padding:10px 20px; font-size:14px; background:#007AFF;" onclick="loadGlobalData()">🔄 데이터 새로고침</button>
+    </div>
+
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <span class="kpi-label">가입된 스튜디오</span>
+            <h2 class="kpi-value" id="kpiUsers">0</h2>
+            <div class="kpi-sub" id="kpiActiveUsers">활성 유저: 0명 (0%)</div>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">누적 거래액 (GMV)</span>
+            <h2 class="kpi-value green" id="kpiRevenue">₩ 0</h2>
+            <div class="kpi-sub" id="kpiAOV">건당 평균 객단가: ₩ 0</div>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">누적 예약 발생 건수</span>
+            <h2 class="kpi-value blue" id="kpiBookings">0</h2>
+            <div class="kpi-sub" id="kpiTodayBookings" style="color:#007AFF; font-weight:bold;">오늘 들어온 예약: 0건 🔥</div>
+        </div>
+        <div class="kpi-card">
+            <span class="kpi-label">플랫폼 예약 취소율</span>
+            <h2 class="kpi-value red" id="kpiCancelRate">0%</h2>
+            <div class="kpi-sub" id="kpiCancelCount">총 0건 취소됨</div>
+        </div>
+    </div>
+
+    <h2 class="section-title">가입 유저 현황 및 제재 관리</h2>
+    <div style="overflow-x: auto;">
+        <table id="freelancerTable">
+            <thead>
+                <tr>
+                    <th>상태/링크 ID</th>
+                    <th>상호명 (프로필)</th>
+                    <th>폼 조회수</th>
+                    <th>예약 수</th>
+                    <th>누적 매출액</th>
+                    <th>관리자 액션</th>
+                </tr>
+            </thead>
+            <tbody id="freelancerTableBody">
+                <tr><td colspan="6" style="text-align:center; padding:30px; color:#888;">데이터를 불러오는 중입니다...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    // 💡 운영하시는 Supabase 정보로 유지
+    const SUPABASE_URL = 'https://whqjrhvvufadzethfvza.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_DWccD4VzZL7uGlEgc29enQ_GlGWf3b-';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    const DEV_PASSCODE = "assi2026"; 
+
+    function checkDevAuth() {
+        if (document.getElementById('devPasscode').value === DEV_PASSCODE) {
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            loadGlobalData();
+        } else { alert("코드가 일치하지 않습니다."); }
+    }
+
+    let allProfilesData = [];
+
+    async function loadGlobalData() {
+        try {
+            const { data: profiles, error: err1 } = await db.from('Freelancer_Profiles').select('*');
+            const { data: bookings, error: err2 } = await db.from('Bookings').select('*');
+
+            if (err1 || err2) {
+                alert("데이터 로드 오류. Supabase 정책(RLS)을 확인하세요."); return;
+            }
+
+            allProfilesData = profiles || [];
+            
+            let totalUsers = allProfilesData.length;
+            let activeUsers = 0; // 예약을 1건이라도 받은 유저
+            
+            let totalBookings = 0;
+            let cancelledBookings = 0;
+            let todayBookingsCount = 0;
+            let totalRevenue = 0;
+            
+            let studioStats = {};
+
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            // 1. 프로필 껍데기 세팅
+            allProfilesData.forEach(p => {
+                let settings = {};
+                try { settings = p.bank_info._appSettings || {}; } catch(e) {}
+                studioStats[p.id] = {
+                    id: p.id,
+                    link_id: settings.link_id || '미설정',
+                    name: p.business_name || '이름없음',
+                    views: settings.page_views || 0,
+                    is_banned: settings.is_banned || false, // 💡 계정 정지 여부
+                    bookingCount: 0,
+                    revenue: 0,
+                    hasActivity: false
+                };
+            });
+
+            // 2. 예약 데이터 분석
+            if (bookings) {
+                bookings.forEach(b => {
+                    const isToday = b.created_at && b.created_at.startsWith(todayStr);
+                    
+                    if (b.status === 'cancelled') {
+                        cancelledBookings++;
+                    } else {
+                        totalBookings++;
+                        totalRevenue += (b.total_price || 0);
+                        if (isToday) todayBookingsCount++;
+                        
+                        if (studioStats[b.freelancer_id]) {
+                            studioStats[b.freelancer_id].bookingCount++;
+                            studioStats[b.freelancer_id].revenue += (b.total_price || 0);
+                            studioStats[b.freelancer_id].hasActivity = true;
+                        }
+                    }
+                });
+            }
+
+            // 활성 유저 계산
+            Object.values(studioStats).forEach(s => { if (s.hasActivity) activeUsers++; });
+
+            // 3. 상단 KPI 데이터 바인딩
+            const activeRatio = totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0;
+            const aov = totalBookings > 0 ? Math.floor(totalRevenue / totalBookings) : 0;
+            const cancelRate = (totalBookings + cancelledBookings) > 0 ? ((cancelledBookings / (totalBookings + cancelledBookings)) * 100).toFixed(1) : 0;
+
+            document.getElementById('kpiUsers').innerText = totalUsers;
+            document.getElementById('kpiActiveUsers').innerText = `활성 유저: ${activeUsers}명 (${activeRatio}%)`;
+            
+            document.getElementById('kpiBookings').innerText = totalBookings;
+            document.getElementById('kpiTodayBookings').innerText = `오늘 들어온 예약: ${todayBookingsCount}건 🔥`;
+            
+            document.getElementById('kpiRevenue').innerText = `₩ ${totalRevenue.toLocaleString()}`;
+            document.getElementById('kpiAOV').innerText = `건당 평균 결제액: ₩ ${aov.toLocaleString()}`;
+            
+            document.getElementById('kpiCancelRate').innerText = `${cancelRate}%`;
+            document.getElementById('kpiCancelCount').innerText = `총 ${cancelledBookings}건 취소/이탈됨`;
+
+            // 4. 유저 목록 테이블 바인딩
+            const sortedStudios = Object.values(studioStats).sort((a, b) => b.bookingCount - a.bookingCount);
+            const tbody = document.getElementById('freelancerTableBody');
+            
+            if (sortedStudios.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:#888;">가입된 유저가 없습니다.</td></tr>';
+            } else {
+                let html = '';
+                sortedStudios.forEach(s => {
+                    const rowClass = s.is_banned ? 'banned' : '';
+                    const badgeHtml = s.is_banned 
+                        ? `<span class="badge banned">정지됨</span>` 
+                        : `<span class="badge">${s.link_id}</span>`;
+                        
+                    const banBtnText = s.is_banned ? '🟢 정지 해제' : '⏸️ 계정 정지';
+
+                    html += `
+                        <tr class="${rowClass}">
+                            <td>${badgeHtml}</td>
+                            <td style="font-weight:bold; color:#FFF;">${s.name}</td>
+                            <td>${s.views.toLocaleString()}회</td>
+                            <td style="color:#007AFF; font-weight:bold;">${s.bookingCount}건</td>
+                            <td style="color:#34C759;">₩ ${s.revenue.toLocaleString()}</td>
+                            <td>
+                                <button class="action-btn ban" onclick="toggleBan('${s.id}', ${s.is_banned})">${banBtnText}</button>
+                                <button class="action-btn delete" onclick="deleteUser('${s.id}', '${s.name}')">🗑 영구삭제</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            }
+
+            document.getElementById('lastUpdatedText').innerText = `마지막 동기화: ${new Date().toLocaleTimeString()}`;
+
+        } catch (error) { console.error(error); }
+    }
+
+    // 💡 계정 정지/해제 기능 (Soft Delete)
+    async function toggleBan(userId, currentBanStatus) {
+        const confirmMsg = currentBanStatus 
+            ? "이 계정의 정지를 해제하시겠습니까? (다시 예약 링크가 작동합니다)" 
+            : "이 계정을 정지하시겠습니까? (데이터는 남지만 예약 링크가 차단됩니다)";
+            
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            // 해당 유저의 현재 DB 프로필 획득
+            const userProfile = allProfilesData.find(p => p.id === userId);
+            if (!userProfile) return;
+
+            let bankInfo = userProfile.bank_info || {};
+            if (!bankInfo._appSettings) bankInfo._appSettings = {};
+            
+            // _appSettings 안에 is_banned 상태 덮어쓰기
+            bankInfo._appSettings.is_banned = !currentBanStatus;
+
+            await db.from('Freelancer_Profiles').update({ bank_info: bankInfo }).eq('id', userId);
+            alert("✅ 계정 상태가 변경되었습니다.");
+            loadGlobalData(); // 새로고침
+        } catch(e) { alert("상태 변경 실패"); }
+    }
+
+    // 💡 계정 완전 삭제 기능 (Hard Delete)
+    async function deleteUser(userId, userName) {
+        if (!confirm(`⚠️ 정말 [${userName}] 스튜디오를 플랫폼에서 영구 삭제하시겠습니까?\n\n- 해당 프리랜서의 프로필, 세팅이 모두 삭제됩니다.\n- 고객들의 예약 내역은 추적 불가 상태가 됩니다.\n(이 작업은 되돌릴 수 없습니다!)`)) return;
+
+        try {
+            // DB에서 해당 Row 아예 삭제
+            await db.from('Freelancer_Profiles').delete().eq('id', userId);
+            alert(`[${userName}] 계정이 영구 삭제되었습니다.`);
+            loadGlobalData();
+        } catch(e) { alert("삭제 권한이 없거나 오류가 발생했습니다."); }
+    }
+</script>
+</body>
+</html>
