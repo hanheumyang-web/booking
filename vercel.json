@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/ASSI/:id",
+      "destination": "/index.html?u=:id"
+    }
+  ]
+}
